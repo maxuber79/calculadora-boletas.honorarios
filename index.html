@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculadora de Boletas</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="app-header">
+  <div class="header-top">
+    <div class="eyebrow">Herramienta tributaria · Chile</div>
+    <button class="btn-theme" onclick="toggleTheme()" type="button" aria-label="Cambiar tema oscuro/claro">🌙</button>
+  </div>
+  <h1>Calculadora de Boletas de Honorarios</h1>
+  <p>Calcula el bruto a emitir a partir del líquido deseado, con tasa actualizada por año</p>
+</div>
+
+<div class="layout">
+
+  <!-- CONFIGURACIÓN -->
+  <div class="card">
+    <div class="card-title">Configuración del año</div>
+
+    <div class="year-pills" id="yearPills" role="radiogroup" aria-label="Seleccionar año tributario"></div>
+
+    <div class="tasa-display">
+      <span class="td-label">Tasa retención <span id="yearLabel">2026</span></span>
+      <span class="td-val" id="tasaDisplay">15.25%</span>
+    </div>
+
+    <div class="toggle-row" onclick="toggleTasaCustom()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleTasaCustom()}" role="switch" aria-checked="false" tabindex="0" aria-labelledby="lblTasaCustom">
+      <input type="checkbox" id="chkTasaCustom" aria-hidden="true">
+      <div class="toggle-track"></div>
+      <span class="toggle-label" id="lblTasaCustom">Usar tasa personalizada</span>
+    </div>
+
+    <div id="tasaCustomBlock" style="display:none; margin-bottom:6px">
+      <div class="field" style="margin-bottom:0">
+        <label>Tasa personalizada (%)</label>
+        <input type="number" id="tasaCustom" placeholder="Ej: 15.25" step="0.01" min="0" max="100">
+      </div>
+    </div>
+  </div>
+
+  <!-- INPUTS -->
+  <div class="card">
+    <div class="card-title">Honorarios a calcular</div>
+
+    <div class="field">
+      <label>Modo de cálculo</label>
+      <select id="modoCalc">
+        <option value="liq2bruto">Tengo el Líquido → calcular Bruto</option>
+        <option value="bruto2liq">Tengo el Bruto → calcular Líquido</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label id="montoLabel">Total Líquido a recibir ($)</label>
+      <input type="number" id="montoInput" placeholder="Ej: 550000" min="0">
+    </div>
+
+    <!-- Split opcional -->
+    <div class="toggle-row" onclick="toggleSplit()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSplit()}" role="switch" aria-checked="false" tabindex="0" aria-labelledby="lblSplit">
+      <input type="checkbox" id="chkSplit" aria-hidden="true">
+      <div class="toggle-track"></div>
+      <span class="toggle-label" id="lblSplit">Dividir en dos boletas</span>
+    </div>
+
+    <div id="splitBlock" style="display:none">
+      <div class="split-row" style="margin-bottom:14px">
+        <div class="field" style="margin:0">
+          <label>% Boleta 1</label>
+          <input type="number" id="pct1" value="50" min="1" max="99" oninput="syncPct()">
+        </div>
+        <div class="field" style="margin:0">
+          <label>% Boleta 2</label>
+          <input type="number" id="pct2" value="50" readonly>
+        </div>
+      </div>
+    </div>
+
+    <!-- Monto adicional -->
+    <div class="toggle-row" onclick="toggleAdicional()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleAdicional()}" role="switch" aria-checked="false" tabindex="0" aria-labelledby="lblAdicional">
+      <input type="checkbox" id="chkAdicional" aria-hidden="true">
+      <div class="toggle-track"></div>
+      <span class="toggle-label" id="lblAdicional">Agregar monto adicional (sin impuesto)</span>
+    </div>
+
+    <div id="adicionalBlock" class="adicional-block" style="display:none">
+      <div class="field">
+        <label>Monto adicional Líquido ($)</label>
+        <input type="number" id="montoAdicional" placeholder="Ej: 200000" min="0">
+      </div>
+    </div>
+
+    <button class="btn-calc" onclick="calcular()">Calcular</button>
+    <button class="btn-print" id="btnPrint" onclick="imprimir()" type="button" style="display:none">Imprimir / PDF</button>
+  </div>
+
+  <!-- RESULTADOS -->
+  <div class="card results-card" id="resultsCard">
+    <div class="card-title">
+      Resultado
+      <span class="impuesto-badge" id="impuestoBadge" style="display:none"></span>
+    </div>
+    <div id="resultsContent" aria-live="polite" role="status">
+      <div class="empty-state">
+        <div class="big" aria-hidden="true">🧾</div>
+        <span>Ingresa los valores y presiona Calcular</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

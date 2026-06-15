@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Tests - Calculadora de Boletas</title>
+<link rel="stylesheet" href="https://code.jquery.com/qunit/qunit-2.20.0.css">
+</head>
+<body>
+<div id="qunit"></div>
+
+<!-- DOM necesario para app.js -->
+<div id="qunit-fixture">
+  <div class="year-pills" id="yearPills"></div>
+  <span id="yearLabel">2026</span>
+  <span id="tasaDisplay">15.25%</span>
+  <div class="toggle-row">
+    <input type="checkbox" id="chkTasaCustom">
+  </div>
+  <div id="tasaCustomBlock" style="display:none">
+    <input type="number" id="tasaCustom">
+  </div>
+  <select id="modoCalc">
+    <option value="liq2bruto" selected>Tengo el Líquido</option>
+    <option value="bruto2liq">Tengo el Bruto</option>
+  </select>
+  <label id="montoLabel">Total Líquido a recibir ($)</label>
+  <input type="number" id="montoInput">
+  <div class="toggle-row">
+    <input type="checkbox" id="chkSplit">
+  </div>
+  <div id="splitBlock" style="display:none">
+    <input type="number" id="pct1" value="50">
+    <input type="number" id="pct2" value="50">
+  </div>
+  <div class="toggle-row">
+    <input type="checkbox" id="chkAdicional">
+  </div>
+  <div id="adicionalBlock" style="display:none">
+    <input type="number" id="montoAdicional">
+  </div>
+  <div id="resultsContent"></div>
+  <span id="impuestoBadge" style="display:none"></span>
+  <button id="btnPrint" style="display:none"></button>
+</div>
+
+<script src="app.js"></script>
+<script src="https://code.jquery.com/qunit/qunit-2.20.0.js"></script>
+<script>
+QUnit.config.testTimeout = 5000;
+
+// ── fmt ─────────────────────────────────────────────────────────────
+QUnit.module('fmt');
+
+QUnit.test('formatea número positivo', assert => {
+  assert.equal(fmt(550000), '$ 550.000');
+});
+
+QUnit.test('formatea número con decimales', assert => {
+  assert.equal(fmt(1234.56), '$ 1.235');
+});
+
+QUnit.test('formatea cero', assert => {
+  assert.equal(fmt(0), '$ 0');
+});
+
+QUnit.test('NaN retorna $ 0', assert => {
+  assert.equal(fmt(NaN), '$ 0');
+});
+
+QUnit.test('Infinity retorna $ 0', assert => {
+  assert.equal(fmt(Infinity), '$ 0');
+});
+
+// ── TASAS ────────────────────────────────────────────────────────────
+QUnit.module('TASAS');
+
+QUnit.test('contiene años 2024-2030', assert => {
+  assert.equal(Object.keys(TASAS).length, 7);
+  assert.equal(TASAS[2024], 13.75);
+  assert.equal(TASAS[2026], 15.25);
+  assert.equal(TASAS[2030], 17.00);
+});
+
+QUnit.test('TASA_MAX es 17%', assert => {
+  assert.equal(TASA_MAX, 17.00);
+});
+
+// ── getTasa ──────────────────────────────────────────────────────────
+QUnit.module('getTasa');
+
+QUnit.test('retorna tasa del año activo por defecto', assert => {
+  anioActivo = 2026;
+  document.getElementById('tasaCustom').value = '';
+  assert.equal(getTasa(), 15.25);
+});
+
+QUnit.test('retorna tasa personalizada si está configurada', assert => {
+  anioActivo = 2026;
+  document.getElementById('tasaCustom').value = '10';
+  assert.equal(getTasa(), 10);
+});
+
+QUnit.test('retorna TASA_MAX para año sin definir', assert => {
+  anioActivo = 2040;
+  document.getElementById('tasaCustom').value = '';
+  assert.equal(getTasa(), TASA_MAX);
+});
+
+// ── syncPct ──────────────────────────────────────────────────────────
+QUnit.module('syncPct');
+
+QUnit.test('clamp a 1 si el valor es menor', assert => {
+  document.getElementById('pct1').value = '-5';
+  syncPct();
+  assert.equal(document.getElementById('pct1').value, '1');
+  assert.equal(document.getElementById('pct2').value, '99');
+});
+
+QUnit.test('clamp a 99 si el valor excede', assert => {
+  document.getElementById('pct1').value = '150';
+  syncPct();
+  assert.equal(document.getElementById('pct1').value, '99');
+  assert.equal(document.getElementById('pct2').value, '1');
+});
+
+QUnit.test('50-50 funciona correctamente', assert => {
+  document.getElementById('pct1').value = '50';
+  syncPct();
+  assert.equal(document.getElementById('pct1').value, '50');
+  assert.equal(document.getElementById('pct2').value, '50');
+});
+
+QUnit.test('pct2 siempre es 100 - pct1', assert => {
+  document.getElementById('pct1').value = '30';
+  syncPct();
+  assert.equal(document.getElementById('pct2').value, '70');
+});
+
+// ── calcular modo liq2bruto ──────────────────────────────────────────
+QUnit.module('calcular - liq2bruto');
+
+QUnit.test('calcula bruto a partir de líquido', assert => {
+  document.getElementById('modoCalc').value = 'liq2bruto';
+  document.getElementById('montoInput').value = '500000';
+  document.getElementById('chkSplit').checked = false;
+  document.getElementById('chkAdicional').checked = false;
+  document.getElementById('splitBlock').style.display = 'none';
+  document.getElementById('adicionalBlock').style.display = 'none';
+  anioActivo = 2026;
+  document.getElementById('tasaCustom').value = '';
+  document.getElementById('impuestoBadge').style.display = 'none';
+
+  calcular();
+
+  const html = document.getElementById('resultsContent').innerHTML;
+  assert.notEqual(html.indexOf('$'), -1, 'debe contener valores formateados');
+  assert.ok(html.includes('Bruto total'), 'debe mostrar stat Bruto total');
+  assert.ok(html.includes('Líquido total'), 'debe mostrar stat Líquido total');
+  assert.ok(html.includes('Impuesto retenido'), 'debe mostrar stat Impuesto');
+});
+
+// ── calcular modo bruto2liq ──────────────────────────────────────────
+QUnit.module('calcular - bruto2liq');
+
+QUnit.test('calcula líquido a partir de bruto', assert => {
+  document.getElementById('modoCalc').value = 'bruto2liq';
+  document.getElementById('montoInput').value = '500000';
+  document.getElementById('chkSplit').checked = false;
+  document.getElementById('chkAdicional').checked = false;
+  anioActivo = 2026;
+  document.getElementById('tasaCustom').value = '';
+
+  calcular();
+
+  const html = document.getElementById('resultsContent').innerHTML;
+  assert.notEqual(html.indexOf('$'), -1);
+  assert.ok(html.includes('Bruto total'));
+});
+
+// ── calcular con split ───────────────────────────────────────────────
+QUnit.module('calcular - split');
+
+QUnit.test('split 60-40 genera dos boletas en la tabla', assert => {
+  document.getElementById('modoCalc').value = 'liq2bruto';
+  document.getElementById('montoInput').value = '500000';
+  document.getElementById('chkSplit').checked = true;
+  document.getElementById('chkAdicional').checked = false;
+  document.getElementById('splitBlock').style.display = 'block';
+  document.getElementById('pct1').value = '60';
+  syncPct();
+  anioActivo = 2026;
+  document.getElementById('tasaCustom').value = '';
+
+  calcular();
+
+  const html = document.getElementById('resultsContent').innerHTML;
+  assert.ok(html.includes('Boleta 1'), 'debe mostrar Boleta 1');
+  assert.ok(html.includes('Boleta 2'), 'debe mostrar Boleta 2');
+  assert.ok(html.includes('Total'), 'debe mostrar fila Total');
+});
+
+// ── calcular con adicional ────────────────────────────────────────────
+QUnit.module('calcular - adicional');
+
+QUnit.test('monto adicional aparece en la tabla', assert => {
+  document.getElementById('modoCalc').value = 'liq2bruto';
+  document.getElementById('montoInput').value = '500000';
+  document.getElementById('chkSplit').checked = false;
+  document.getElementById('chkAdicional').checked = true;
+  document.getElementById('adicionalBlock').style.display = 'block';
+  document.getElementById('montoAdicional').value = '200000';
+  anioActivo = 2026;
+  document.getElementById('tasaCustom').value = '';
+
+  calcular();
+
+  const html = document.getElementById('resultsContent').innerHTML;
+  assert.ok(html.includes('Adicional'), 'debe mostrar fila Adicional');
+});
+
+// ── calcular errores ─────────────────────────────────────────────────
+QUnit.module('calcular - errores');
+
+QUnit.test('monto cero muestra error inline', assert => {
+  document.getElementById('montoInput').value = '0';
+  calcular();
+
+  const html = document.getElementById('resultsContent').innerHTML;
+  assert.ok(html.includes('⚠️'), 'debe mostrar advertencia');
+  assert.notEqual(document.getElementById('impuestoBadge').style.display, 'inline-flex', 'badge oculto');
+});
+
+QUnit.test('tasa 100% muestra error inline', assert => {
+  document.getElementById('montoInput').value = '500000';
+  document.getElementById('tasaCustom').value = '100';
+  calcular();
+
+  const html = document.getElementById('resultsContent').innerHTML;
+  assert.ok(html.includes('⚠️'));
+  document.getElementById('tasaCustom').value = '';
+});
+</script>
+</body>
+</html>
